@@ -6,15 +6,18 @@ use std::{
 
 struct Worker {
     id: usize,
-    handle: thread::JoinHandle<()>
+    thread: thread::JoinHandle<()>
 }
 
 impl Worker {
-    fn new(id: usize, receiver: Arc<Mutex<mpsc::Receiver<Job>>>) -> Self {
-        Self {
-            id,
-            handle: thread::spawn(|| {receiver;})
-        }
+    fn new(id: usize, receiver: Arc<Mutex<mpsc::Receiver<Job>>>) -> Worker {
+       let thread = thread::spawn(move || loop {
+        let job = receiver.lock().unwrap().recv().unwrap();
+        println!("Worker {id} got a jerb; executing.");
+
+        job()
+       });
+       Worker {id, thread}
     }
 }
 pub struct ThreadPool {
@@ -50,7 +53,7 @@ impl ThreadPool {
     /// Another way to create a new ThreadPool which uses Result
     /// 
     /// This has the advantage of not causing an unrecoverable state if 0 is passed as the pool size
-    pub fn build(size: usize) -> Result<ThreadPool, PoolCreationError> {
+    /* pub fn build(size: usize) -> Result<ThreadPool, PoolCreationError> {
         match size {
             0 => {return Err(PoolCreationError)},
             _ => {
@@ -59,7 +62,7 @@ impl ThreadPool {
             }
         }
     }
-
+    */
     pub fn execute<F>(&self, f: F)
     where 
         F: FnOnce() + Send + 'static,
